@@ -328,6 +328,42 @@ router.post(
   }
 );
 
+// @route   POST /api/auth/reset-admin-password
+// @desc    Temporarily reset admin password (REMOVE IN PRODUCTION)
+// @access  Public (TEMPORARY DEBUG)
+router.post('/reset-admin-password', async (req: Request, res: Response) => {
+  try {
+    const { email, newPassword } = req.body;
+    
+    // Find admin user
+    const adminUser = await User.findOne({ role: 'admin' });
+    if (!adminUser) {
+      return res.status(404).json({ message: 'No admin user found' });
+    }
+
+    // Update password (will be automatically hashed by pre-save hook)
+    adminUser.password = newPassword;
+    await adminUser.save();
+
+    // Generate new token
+    const token = generateToken(adminUser._id.toString());
+
+    res.json({
+      message: 'Admin password reset successfully',
+      token,
+      user: {
+        id: adminUser._id.toString(),
+        email: adminUser.email,
+        full_name: adminUser.full_name,
+        role: adminUser.role,
+      }
+    });
+  } catch (error: any) {
+    console.error('Reset admin password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   GET /api/auth/debug-admins
 // @desc    Debug endpoint to check admin users (TEMPORARY)
 // @access  Public (REMOVE IN PRODUCTION)
