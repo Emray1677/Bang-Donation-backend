@@ -14,10 +14,10 @@
   "keywords": [
     "donation",
     "charity",
-    "api"
+    "api",
+    "bangchan"
   ],
-  "packageManager": "yarn@4.12.0",
-  "author": "",
+  "author": "Emray",
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",
