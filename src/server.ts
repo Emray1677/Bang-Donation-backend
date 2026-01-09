@@ -90,7 +90,8 @@ app.get('/', (req, res) => {
     status: "ok",
     message: "Bang Donation Backend is running 🚀",
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    api_url: `${req.protocol}://${req.get('host')}/api`
   });
 });
 

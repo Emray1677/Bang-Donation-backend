@@ -81,6 +81,73 @@ router.post(
   }
 );
 
+router.post(
+  '/login-debug',
+  [
+    body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
+    body('password').notEmpty().withMessage('Password is required'),
+  ],
+  async (req: Request, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ message: errors.array()[0].msg });
+      }
+
+      const { email, password } = req.body;
+
+      // Debug info
+      console.log('Login attempt:', { 
+        email: email, 
+        emailLowercase: email.toLowerCase(),
+        passwordLength: password.length 
+      });
+
+      // Find user and include password for comparison
+      const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+      
+      console.log('User found:', !!user);
+      if (user) {
+        console.log('User email in DB:', user.email);
+      }
+
+      if (!user) {
+        return res.status(401).json({ 
+          message: 'Invalid email or password',
+          debug: { email, emailLowercase: email.toLowerCase() }
+        });
+      }
+
+      // Check password
+      const isMatch = await user.comparePassword(password);
+      console.log('Password match:', isMatch);
+
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Invalid email or password' });
+      }
+
+      // Generate token
+      const token = generateToken(user._id.toString());
+
+      res.json({
+        token,
+        user: {
+          id: user._id.toString(),
+          email: user.email,
+          full_name: user.full_name,
+          avatar_url: user.avatar_url,
+          role: user.role,
+          created_at: user.created_at.toISOString(),
+          updated_at: user.updated_at.toISOString(),
+        },
+      });
+    } catch (error: any) {
+      console.error('Login error:', error);
+      res.status(500).json({ message: 'Server error during login' });
+    }
+  }
+);
+
 // @route   POST /api/auth/login
 // @desc    Login user
 // @access  Public
