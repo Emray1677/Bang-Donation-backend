@@ -100,7 +100,7 @@ router.post(
       const { email, password } = req.body;
 
       // Find user and include password for comparison
-      const user = await User.findOne({ email }).select('+password');
+      const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
       if (!user) {
         return res.status(401).json({ message: 'Invalid email or password' });
       }
