@@ -31,7 +31,12 @@ const server = http.createServer(app);
 const getAllowedOrigins = () => {
   const origins = process.env.ALLOWED_ORIGINS 
     ? process.env.ALLOWED_ORIGINS.split(',')
-    : ['http://localhost:5173', 'http://localhost:5174'];
+    : [
+        'http://localhost:5173', 
+        'http://localhost:5174',
+        'https://bang-donation.vercel.app',
+        'https://bang-donation-admin.vercel.app'
+      ];
   return origins;
 };
 
