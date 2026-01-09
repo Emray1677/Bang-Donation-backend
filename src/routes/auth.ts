@@ -328,6 +328,29 @@ router.post(
   }
 );
 
+// @route   GET /api/auth/debug-admins
+// @desc    Debug endpoint to check admin users (TEMPORARY)
+// @access  Public (REMOVE IN PRODUCTION)
+router.get('/debug-admins', async (req: Request, res: Response) => {
+  try {
+    const adminUsers = await User.find({ role: 'admin' }).select('email full_name role created_at');
+    res.json({
+      message: 'Admin users found',
+      count: adminUsers.length,
+      users: adminUsers.map(user => ({
+        id: user._id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        created_at: user.created_at
+      }))
+    });
+  } catch (error: any) {
+    console.error('Debug admin error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @route   POST /api/auth/create-first-admin
 // @desc    Create the first admin user (only if no admin exists)
 // @access  Public (but only works if no admin exists)
