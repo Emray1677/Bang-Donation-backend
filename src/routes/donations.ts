@@ -86,13 +86,6 @@ router.post(
   }
 );
 
-// @route   GET /api/donations/test
-// @desc    Test endpoint
-// @access  Public
-router.get('/test', async (req: express.Request, res: Response) => {
-  res.json({ message: 'Donations routes working', timestamp: new Date().toISOString() });
-});
-
 // @route   GET /api/donations/communication-methods
 // @desc    Get active communication methods for public view
 // @access  Public
