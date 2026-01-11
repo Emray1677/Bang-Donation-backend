@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 import User from '../models/User';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
@@ -369,10 +370,24 @@ router.post('/reset-admin-password', async (req: Request, res: Response) => {
 // @access  Public (REMOVE IN PRODUCTION)
 router.get('/debug-admins', async (req: Request, res: Response) => {
   try {
+    console.log('=== DEBUG ADMINS ===');
+    console.log('MongoDB connected:', mongoose.connection.readyState === 1 ? 'YES' : 'NO');
+    console.log('Database name:', mongoose.connection.name);
+    
     const adminUsers = await User.find({ role: 'admin' }).select('email full_name role created_at');
+    const allUsersCount = await User.countDocuments();
+    
+    console.log('Total users:', allUsersCount);
+    console.log('Admin users found:', adminUsers.length);
+    
     res.json({
       message: 'Admin users found',
-      count: adminUsers.length,
+      database: {
+        connected: mongoose.connection.readyState === 1,
+        name: mongoose.connection.name,
+        totalUsers: allUsersCount,
+        adminCount: adminUsers.length
+      },
       users: adminUsers.map(user => ({
         id: user._id,
         email: user.email,
@@ -383,7 +398,7 @@ router.get('/debug-admins', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Debug admin error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
@@ -411,15 +426,24 @@ router.post(
         return res.status(400).json({ message: errors.array()[0].msg });
       }
 
-      // Check if any admin already exists
-      const existingAdmin = await User.findOne({ role: 'admin' });
-      if (existingAdmin) {
+      const { email, password, full_name } = req.body;
+
+      // Debug: Check database connection and admin count
+      console.log('=== CREATE ADMIN DEBUG ===');
+      console.log('MongoDB connected:', mongoose.connection.readyState === 1 ? 'YES' : 'NO');
+      console.log('Database name:', mongoose.connection.name);
+      
+      // Count existing admins
+      const adminCount = await User.countDocuments({ role: 'admin' });
+      console.log('Current admin count:', adminCount);
+      
+      // Allow up to 2 admins
+      if (adminCount >= 2) {
         return res.status(403).json({
-          message: 'An admin user already exists. Please login or contact the system administrator.',
+          message: 'Maximum of 2 admin users already exists. Please contact the system administrator.',
+          adminCount
         });
       }
-
-      const { email, password, full_name } = req.body;
 
       // Check if user with this email already exists
       const existingUser = await User.findOne({ email: email.toLowerCase() });
@@ -427,7 +451,7 @@ router.post(
         return res.status(400).json({ message: 'User with this email already exists' });
       }
 
-      // Create first admin user
+      // Create admin user
       const user = await User.create({
         email: email.toLowerCase(),
         password,
@@ -436,12 +460,14 @@ router.post(
         is_verified: true,
       });
 
+      console.log('Admin created successfully:', { email: user.email, id: user._id });
+
       // Generate token for automatic login
       const token = generateToken(user._id.toString());
 
       res.status(201).json({
         token,
-        message: 'First admin user created successfully!',
+        message: 'Admin user created successfully!',
         user: {
           id: user._id.toString(),
           email: user.email,
@@ -451,13 +477,14 @@ router.post(
           created_at: user.created_at.toISOString(),
           updated_at: user.updated_at.toISOString(),
         },
+        adminCount: adminCount + 1,
       });
     } catch (error: any) {
-      console.error('Create first admin error:', error);
+      console.error('Create admin error:', error);
       if (error.code === 11000) {
         return res.status(400).json({ message: 'User with this email already exists' });
       }
-      res.status(500).json({ message: 'Server error creating first admin user' });
+      res.status(500).json({ message: 'Server error creating admin user' });
     }
   }
 );
