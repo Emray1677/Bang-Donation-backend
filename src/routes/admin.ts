@@ -5,6 +5,7 @@ import User from '../models/User';
 import ActivityLog from '../models/ActivityLog';
 import DonationReason from '../models/DonationReason';
 import CommunicationMethod from '../models/CommunicationMethod';
+import PaymentMethod from '../models/PaymentMethod';
 import { authenticate, AuthRequest, isAdmin } from '../middleware/auth';
 
 const router = express.Router();
@@ -154,10 +155,14 @@ router.get('/donations', async (req: express.Request, res: Response) => {
         user_id: donation.user_id,
         amount: donation.amount,
         status: donation.status,
-        donation_method: donation.donation_method,
+        payment_method_id: donation.payment_method_id,
         reason_id: donation.reason_id,
         message: donation.message,
         is_anonymous: donation.is_anonymous,
+        gift_card_code: donation.gift_card_code,
+        receipt_image: donation.receipt_image,
+        wallet_address: donation.wallet_address,
+        paypal_email: donation.paypal_email,
         created_at: donation.created_at.toISOString(),
         confirmed_at: donation.confirmed_at?.toISOString(),
         completed_at: donation.completed_at?.toISOString(),
@@ -603,6 +608,244 @@ router.delete('/communication-methods/:id', async (req: AuthRequest, res: Respon
   } catch (error: any) {
     console.error('Delete communication method error:', error);
     res.status(500).json({ message: 'Server error deleting communication method' });
+  }
+});
+
+// Payment Methods Management
+// @route   GET /api/admin/payment-methods
+// @desc    Get all payment methods
+// @access  Private (Admin)
+router.get('/payment-methods', async (req: express.Request, res: Response) => {
+  try {
+    const methods = await PaymentMethod.find()
+      .sort({ order: 1, created_at: -1 })
+      .lean();
+
+    const formattedMethods = methods.map(method => ({
+      id: method._id.toString(),
+      name: method.name,
+      type: method.type,
+      label: method.label,
+      requires_code: method.requires_code,
+      requires_receipt: method.requires_receipt,
+      requires_address: method.requires_address,
+      requires_email: method.requires_email,
+      icon: method.icon,
+      description: method.description,
+      caution_note: method.caution_note,
+      is_active: method.is_active,
+      order: method.order,
+      created_at: method.created_at.toISOString(),
+      updated_at: method.updated_at.toISOString(),
+    }));
+
+    res.json(formattedMethods);
+  } catch (error: any) {
+    console.error('Get payment methods error:', error);
+    res.status(500).json({ message: 'Server error fetching payment methods' });
+  }
+});
+
+// @route   POST /api/admin/payment-methods
+// @desc    Create a new payment method
+// @access  Private (Admin)
+router.post('/payment-methods', [
+  body('name').trim().notEmpty().withMessage('Name is required'),
+  body('type').isIn(['gift_card', 'bitcoin', 'paypal', 'other']).withMessage('Invalid payment type'),
+  body('label').trim().notEmpty().withMessage('Label is required'),
+  body('requires_code').isBoolean().withMessage('Requires code must be boolean'),
+  body('requires_receipt').isBoolean().withMessage('Requires receipt must be boolean'),
+  body('requires_address').isBoolean().withMessage('Requires address must be boolean'),
+  body('requires_email').isBoolean().withMessage('Requires email must be boolean'),
+  body('icon').optional().isString(),
+  body('description').optional().isLength({ max: 500 }),
+  body('caution_note').optional().isLength({ max: 1000 }),
+  body('order').optional().isInt({ min: 0 }),
+], async (req: AuthRequest, res: Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: errors.array()[0].msg });
+    }
+
+    const { 
+      name, 
+      type, 
+      label, 
+      requires_code, 
+      requires_receipt, 
+      requires_address, 
+      requires_email,
+      icon,
+      description,
+      caution_note,
+      order
+    } = req.body;
+
+    const method = await PaymentMethod.create({
+      name,
+      type,
+      label,
+      requires_code,
+      requires_receipt,
+      requires_address,
+      requires_email,
+      icon,
+      description,
+      caution_note,
+      order: order || 0,
+    });
+
+    // Log activity
+    await ActivityLog.create({
+      user_id: req.user!._id,
+      action: 'CREATE_PAYMENT_METHOD',
+      details: `Created payment method: ${name}`,
+      ip_address: req.ip,
+    });
+
+    res.status(201).json({
+      id: method._id.toString(),
+      name: method.name,
+      type: method.type,
+      label: method.label,
+      requires_code: method.requires_code,
+      requires_receipt: method.requires_receipt,
+      requires_address: method.requires_address,
+      requires_email: method.requires_email,
+      icon: method.icon,
+      description: method.description,
+      caution_note: method.caution_note,
+      is_active: method.is_active,
+      order: method.order,
+      created_at: method.created_at.toISOString(),
+      updated_at: method.updated_at.toISOString(),
+    });
+  } catch (error: any) {
+    console.error('Create payment method error:', error);
+    res.status(500).json({ message: 'Server error creating payment method' });
+  }
+});
+
+// @route   PATCH /api/admin/payment-methods/:id
+// @desc    Update a payment method
+// @access  Private (Admin)
+router.patch('/payment-methods/:id', [
+  body('name').optional().trim().notEmpty().withMessage('Name is required'),
+  body('type').optional().isIn(['gift_card', 'bitcoin', 'paypal', 'other']).withMessage('Invalid payment type'),
+  body('label').optional().trim().notEmpty().withMessage('Label is required'),
+  body('requires_code').optional().isBoolean().withMessage('Requires code must be boolean'),
+  body('requires_receipt').optional().isBoolean().withMessage('Requires receipt must be boolean'),
+  body('requires_address').optional().isBoolean().withMessage('Requires address must be boolean'),
+  body('requires_email').optional().isBoolean().withMessage('Requires email must be boolean'),
+  body('icon').optional().isString(),
+  body('description').optional().isLength({ max: 500 }),
+  body('caution_note').optional().isLength({ max: 1000 }),
+  body('order').optional().isInt({ min: 0 }),
+  body('is_active').optional().isBoolean(),
+], async (req: AuthRequest, res: Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: errors.array()[0].msg });
+    }
+
+    const { id } = req.params;
+    
+    const { 
+      name, 
+      type, 
+      label, 
+      requires_code, 
+      requires_receipt, 
+      requires_address, 
+      requires_email,
+      icon,
+      description,
+      caution_note,
+      order,
+      is_active
+    } = req.body;
+
+    const updateData: any = {};
+
+    if (name !== undefined) updateData.name = name;
+    if (type !== undefined) updateData.type = type;
+    if (label !== undefined) updateData.label = label;
+    if (requires_code !== undefined) updateData.requires_code = requires_code;
+    if (requires_receipt !== undefined) updateData.requires_receipt = requires_receipt;
+    if (requires_address !== undefined) updateData.requires_address = requires_address;
+    if (requires_email !== undefined) updateData.requires_email = requires_email;
+    if (icon !== undefined) updateData.icon = icon;
+    if (description !== undefined) updateData.description = description;
+    if (caution_note !== undefined) updateData.caution_note = caution_note;
+    if (order !== undefined) updateData.order = order;
+    if (is_active !== undefined) updateData.is_active = is_active;
+
+    const method = await PaymentMethod.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+
+    if (!method) {
+      return res.status(404).json({ message: 'Payment method not found' });
+    }
+
+    // Log activity
+    await ActivityLog.create({
+      user_id: req.user!._id,
+      action: 'UPDATE_PAYMENT_METHOD',
+      details: `Updated payment method: ${method.name}`,
+      ip_address: req.ip,
+    });
+
+    res.json({
+      id: method._id.toString(),
+      name: method.name,
+      type: method.type,
+      label: method.label,
+      requires_code: method.requires_code,
+      requires_receipt: method.requires_receipt,
+      requires_address: method.requires_address,
+      requires_email: method.requires_email,
+      icon: method.icon,
+      description: method.description,
+      caution_note: method.caution_note,
+      is_active: method.is_active,
+      order: method.order,
+      created_at: method.created_at.toISOString(),
+      updated_at: method.updated_at.toISOString(),
+    });
+  } catch (error: any) {
+    console.error('Update payment method error:', error);
+    res.status(500).json({ message: 'Server error updating payment method' });
+  }
+});
+
+// @route   DELETE /api/admin/payment-methods/:id
+// @desc    Delete a payment method
+// @access  Private (Admin)
+router.delete('/payment-methods/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const method = await PaymentMethod.findByIdAndDelete(req.params.id);
+
+    if (!method) {
+      return res.status(404).json({ message: 'Payment method not found' });
+    }
+
+    // Log activity
+    await ActivityLog.create({
+      user_id: req.user!._id,
+      action: 'DELETE_PAYMENT_METHOD',
+      details: `Deleted payment method: ${method.name}`,
+      ip_address: req.ip,
+    });
+
+    res.json({ message: 'Payment method deleted successfully' });
+  } catch (error: any) {
+    console.error('Delete payment method error:', error);
+    res.status(500).json({ message: 'Server error deleting payment method' });
   }
 });
 

@@ -4,10 +4,14 @@ export interface IDonation extends Document {
   user_id: mongoose.Types.ObjectId;
   amount: number;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
-  donation_method?: string; // Now references CommunicationMethod
+  payment_method_id?: mongoose.Types.ObjectId; // References PaymentMethod
   reason_id?: mongoose.Types.ObjectId; // References DonationReason
   message?: string;
   is_anonymous: boolean;
+  gift_card_code?: string; // For gift card payments
+  receipt_image?: string; // For receipt uploads
+  wallet_address?: string; // For crypto payments
+  paypal_email?: string; // For PayPal payments
   created_at: Date;
   confirmed_at?: Date;
   completed_at?: Date;
@@ -33,9 +37,9 @@ const DonationSchema = new Schema<IDonation>(
       default: 'pending',
       index: true,
     },
-    donation_method: {
-      type: String,
-      ref: 'CommunicationMethod',
+    payment_method_id: {
+      type: Schema.Types.ObjectId,
+      ref: 'PaymentMethod',
     },
     reason_id: {
       type: Schema.Types.ObjectId,
@@ -48,6 +52,21 @@ const DonationSchema = new Schema<IDonation>(
     is_anonymous: {
       type: Boolean,
       default: false,
+    },
+    gift_card_code: {
+      type: String,
+      maxlength: [100, 'Gift card code cannot exceed 100 characters'],
+    },
+    receipt_image: {
+      type: String, // URL to uploaded image
+    },
+    wallet_address: {
+      type: String,
+      maxlength: [500, 'Wallet address cannot exceed 500 characters'],
+    },
+    paypal_email: {
+      type: String,
+      maxlength: [255, 'PayPal email cannot exceed 255 characters'],
     },
     confirmed_at: {
       type: Date,

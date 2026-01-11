@@ -3,6 +3,7 @@ import { body, validationResult, query } from 'express-validator';
 import Donation from '../models/Donation';
 import User from '../models/User';
 import CommunicationMethod from '../models/CommunicationMethod';
+import PaymentMethod from '../models/PaymentMethod';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
@@ -41,7 +42,7 @@ router.post(
         return res.status(400).json({ message: errors.array()[0].msg });
       }
 
-      const { amount, message, is_anonymous, reason_id, donation_method } = req.body;
+      const { amount, message, is_anonymous, reason_id, payment_method_id, gift_card_code, receipt_image, wallet_address, paypal_email } = req.body;
 
       const donation = await Donation.create({
         user_id: req.user!._id,
@@ -49,7 +50,11 @@ router.post(
         message: message || undefined,
         is_anonymous: is_anonymous || false,
         reason_id: reason_id || undefined,
-        donation_method: donation_method || undefined,
+        payment_method_id: payment_method_id || undefined,
+        gift_card_code: gift_card_code || undefined,
+        receipt_image: receipt_image || undefined,
+        wallet_address: wallet_address || undefined,
+        paypal_email: paypal_email || undefined,
         status: 'pending',
       });
 
@@ -64,10 +69,14 @@ router.post(
         user_id: donation.user_id.toString(),
         amount: donation.amount,
         status: donation.status,
-        donation_method: donation.donation_method,
+        payment_method_id: donation.payment_method_id?.toString(),
         reason_id: donation.reason_id?.toString(),
         message: donation.message,
         is_anonymous: donation.is_anonymous,
+        gift_card_code: donation.gift_card_code,
+        receipt_image: donation.receipt_image,
+        wallet_address: donation.wallet_address,
+        paypal_email: donation.paypal_email,
         created_at: donation.created_at.toISOString(),
         confirmed_at: donation.confirmed_at?.toISOString(),
         profiles: user ? {
@@ -85,6 +94,40 @@ router.post(
     }
   }
 );
+
+// @route   GET /api/donations/payment-methods
+// @desc    Get active payment methods for public view
+// @access  Public
+router.get('/payment-methods', async (req: express.Request, res: Response) => {
+  try {
+    const methods = await PaymentMethod.find({ is_active: true })
+      .sort({ order: 1, created_at: -1 })
+      .lean();
+
+    const formattedMethods = methods.map(method => ({
+      id: method._id.toString(),
+      name: method.name,
+      type: method.type,
+      label: method.label,
+      requires_code: method.requires_code,
+      requires_receipt: method.requires_receipt,
+      requires_address: method.requires_address,
+      requires_email: method.requires_email,
+      icon: method.icon,
+      description: method.description,
+      caution_note: method.caution_note,
+      is_active: method.is_active,
+      order: method.order,
+      created_at: method.created_at.toISOString(),
+      updated_at: method.updated_at.toISOString(),
+    }));
+
+    res.json(formattedMethods);
+  } catch (error: any) {
+    console.error('Get payment methods error:', error);
+    res.status(500).json({ message: 'Server error fetching payment methods' });
+  }
+});
 
 // @route   GET /api/donations/communication-methods
 // @desc    Get active communication methods for public view
@@ -160,9 +203,14 @@ router.get('/my', authenticate, async (req: AuthRequest, res: Response) => {
       user_id: donation.user_id.toString(),
       amount: donation.amount,
       status: donation.status,
-      donation_method: donation.donation_method,
+      payment_method_id: donation.payment_method_id?.toString(),
+      reason_id: donation.reason_id?.toString(),
       message: donation.message,
       is_anonymous: donation.is_anonymous,
+      gift_card_code: donation.gift_card_code,
+      receipt_image: donation.receipt_image,
+      wallet_address: donation.wallet_address,
+      paypal_email: donation.paypal_email,
       created_at: donation.created_at.toISOString(),
       confirmed_at: donation.confirmed_at?.toISOString(),
     }));
