@@ -2,6 +2,7 @@ import express, { Response } from 'express';
 import { body, validationResult, query } from 'express-validator';
 import Donation from '../models/Donation';
 import User from '../models/User';
+import CommunicationMethod from '../models/CommunicationMethod';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
@@ -84,6 +85,66 @@ router.post(
     }
   }
 );
+
+// @route   GET /api/donations/communication-methods
+// @desc    Get active communication methods for public view
+// @access  Public
+router.get('/communication-methods', async (req: express.Request, res: Response) => {
+  try {
+    const methods = await CommunicationMethod.find({ is_active: true })
+      .sort({ order: 1, created_at: -1 })
+      .lean();
+
+    const formattedMethods = methods.map(method => ({
+      id: method._id.toString(),
+      name: method.name,
+      type: method.type,
+      value: method.value,
+      icon: method.icon,
+      is_active: method.is_active,
+      order: method.order,
+      created_at: method.created_at.toISOString(),
+      updated_at: method.updated_at.toISOString(),
+    }));
+
+    res.json(formattedMethods);
+  } catch (error: any) {
+    console.error('Get communication methods error:', error);
+    res.status(500).json({ message: 'Server error fetching communication methods' });
+  }
+});
+
+// @route   GET /api/donations/my-stats
+// @desc    Get current user's donation statistics
+// @access  Private
+router.get('/my-stats', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!._id;
+    
+    // Get all user's donations
+    const donations = await Donation.find({ user_id: userId }).lean();
+    
+    // Calculate stats by status
+    const confirmed = donations.filter(d => d.status === 'confirmed' || d.status === 'completed');
+    const pending = donations.filter(d => d.status === 'pending');
+    const cancelled = donations.filter(d => d.status === 'cancelled');
+    
+    const totalContributed = confirmed.reduce((sum, d) => sum + d.amount, 0);
+    const pendingAmount = pending.reduce((sum, d) => sum + d.amount, 0);
+    
+    res.json({
+      total_contributed: totalContributed,
+      pending_amount: pendingAmount,
+      confirmed_count: confirmed.length,
+      pending_count: pending.length,
+      cancelled_count: cancelled.length,
+      total_donations: donations.length,
+    });
+  } catch (error: any) {
+    console.error('Get my donation stats error:', error);
+    res.status(500).json({ message: 'Server error fetching donation stats' });
+  }
+});
 
 // @route   GET /api/donations/my
 // @desc    Get current user's donations
