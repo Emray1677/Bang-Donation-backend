@@ -5,6 +5,7 @@ import User from '../models/User';
 import CommunicationMethod from '../models/CommunicationMethod';
 import PaymentMethod from '../models/PaymentMethod';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { upload } from '../middleware/upload';
 
 const router = express.Router();
 
@@ -14,6 +15,7 @@ const router = express.Router();
 router.post(
   '/',
   authenticate,
+  upload.single('receipt_image'),
   [
     body('amount')
       .isFloat({ min: 500 })
@@ -42,7 +44,14 @@ router.post(
         return res.status(400).json({ message: errors.array()[0].msg });
       }
 
-      const { amount, message, is_anonymous, reason_id, payment_method_id, gift_card_code, receipt_image, wallet_address, paypal_email } = req.body;
+      const { amount, message, is_anonymous, reason_id, payment_method_id, gift_card_code, wallet_address, paypal_email } = req.body;
+      
+      // Handle uploaded file
+      let receiptImageUrl: string | undefined;
+      if (req.file) {
+        // Construct the URL for the uploaded file
+        receiptImageUrl = `/uploads/${req.file.filename}`;
+      }
 
       const donation = await Donation.create({
         user_id: req.user!._id,
@@ -52,7 +61,7 @@ router.post(
         reason_id: reason_id || undefined,
         payment_method_id: payment_method_id || undefined,
         gift_card_code: gift_card_code || undefined,
-        receipt_image: receipt_image || undefined,
+        receipt_image: receiptImageUrl || undefined,
         wallet_address: wallet_address || undefined,
         paypal_email: paypal_email || undefined,
         status: 'pending',
