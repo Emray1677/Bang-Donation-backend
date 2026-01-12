@@ -633,6 +633,7 @@ router.get('/payment-methods', async (req: express.Request, res: Response) => {
       icon: method.icon,
       description: method.description,
       caution_note: method.caution_note,
+      receiving_account: method.receiving_account,
       is_active: method.is_active,
       order: method.order,
       created_at: method.created_at.toISOString(),
@@ -660,6 +661,7 @@ router.post('/payment-methods', [
   body('icon').optional().isString(),
   body('description').optional().isLength({ max: 500 }),
   body('caution_note').optional().isLength({ max: 1000 }),
+  body('receiving_account').optional().isLength({ max: 500 }),
   body('order').optional().isInt({ min: 0 }),
 ], async (req: AuthRequest, res: Response) => {
   try {
@@ -679,6 +681,7 @@ router.post('/payment-methods', [
       icon,
       description,
       caution_note,
+      receiving_account,
       order
     } = req.body;
 
@@ -693,6 +696,7 @@ router.post('/payment-methods', [
       icon,
       description,
       caution_note,
+      receiving_account,
       order: order || 0,
     });
 
@@ -716,6 +720,7 @@ router.post('/payment-methods', [
       icon: method.icon,
       description: method.description,
       caution_note: method.caution_note,
+      receiving_account: method.receiving_account,
       is_active: method.is_active,
       order: method.order,
       created_at: method.created_at.toISOString(),
@@ -741,6 +746,7 @@ router.patch('/payment-methods/:id', [
   body('icon').optional().isString(),
   body('description').optional().isLength({ max: 500 }),
   body('caution_note').optional().isLength({ max: 1000 }),
+  body('receiving_account').optional().isLength({ max: 500 }),
   body('order').optional().isInt({ min: 0 }),
   body('is_active').optional().isBoolean(),
 ], async (req: AuthRequest, res: Response) => {
@@ -763,6 +769,7 @@ router.patch('/payment-methods/:id', [
       icon,
       description,
       caution_note,
+      receiving_account,
       order,
       is_active
     } = req.body;
@@ -779,6 +786,7 @@ router.patch('/payment-methods/:id', [
     if (icon !== undefined) updateData.icon = icon;
     if (description !== undefined) updateData.description = description;
     if (caution_note !== undefined) updateData.caution_note = caution_note;
+    if (receiving_account !== undefined) updateData.receiving_account = receiving_account;
     if (order !== undefined) updateData.order = order;
     if (is_active !== undefined) updateData.is_active = is_active;
 
@@ -812,6 +820,7 @@ router.patch('/payment-methods/:id', [
       icon: method.icon,
       description: method.description,
       caution_note: method.caution_note,
+      receiving_account: method.receiving_account,
       is_active: method.is_active,
       order: method.order,
       created_at: method.created_at.toISOString(),

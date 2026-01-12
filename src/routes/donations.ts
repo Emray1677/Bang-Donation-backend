@@ -116,6 +116,7 @@ router.get('/payment-methods', async (req: express.Request, res: Response) => {
       icon: method.icon,
       description: method.description,
       caution_note: method.caution_note,
+      receiving_account: method.receiving_account,
       is_active: method.is_active,
       order: method.order,
       created_at: method.created_at.toISOString(),

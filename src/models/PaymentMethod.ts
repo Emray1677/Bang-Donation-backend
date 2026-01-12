@@ -11,6 +11,7 @@ export interface IPaymentMethod extends Document {
   icon?: string; // Icon name or URL
   description?: string; // Method description
   caution_note?: string; // Admin's caution note for users
+  receiving_account?: string; // Receiving account number/address (BTC wallet, PayPal email, etc.)
   is_active: boolean;
   order: number; // Display order
   created_at: Date;
@@ -62,6 +63,10 @@ const PaymentMethodSchema = new Schema<IPaymentMethod>(
     caution_note: {
       type: String,
       maxlength: [1000, 'Caution note cannot exceed 1000 characters'],
+    },
+    receiving_account: {
+      type: String,
+      maxlength: [500, 'Receiving account cannot exceed 500 characters'],
     },
     is_active: {
       type: Boolean,
