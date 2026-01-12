@@ -15,7 +15,7 @@ const router = express.Router();
 router.post(
   '/',
   authenticate,
-  upload.single('receipt_image'),
+  upload.single('receipt_image') as express.RequestHandler,
   [
     body('amount')
       .isFloat({ min: 500 })
