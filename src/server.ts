@@ -29,23 +29,53 @@ const server = http.createServer(app);
 
 // Get allowed origins from environment or use defaults
 const getAllowedOrigins = () => {
-  const origins = process.env.ALLOWED_ORIGINS 
-    ? process.env.ALLOWED_ORIGINS.split(',')
-    : [
-        'http://localhost:5173', 
-        'http://localhost:5174',
-        'https://bang-donation.vercel.app',
-        'https://bang-donation-admin.vercel.app'
-      ];
-  return origins;
+  if (process.env.ALLOWED_ORIGINS) {
+    return process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim());
+  }
+  
+  // Default origins
+  const defaults = [
+    'http://localhost:5173', 
+    'http://localhost:5174',
+    'https://bang-donation.vercel.app',
+    'https://bang-donation-admin.vercel.app'
+  ];
+  
+  return defaults;
 };
 
 const allowedOrigins = getAllowedOrigins();
 
+// Log allowed origins
+console.log('🌐 Allowed CORS origins:', allowedOrigins);
+console.log('🌐 Environment:', process.env.NODE_ENV || 'development');
+
 // Initialize Socket.IO
 const io = new SocketIOServer(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin) {
+        return callback(null, true);
+      }
+      // In production, allow vercel.app and onrender.com domains
+      if (process.env.NODE_ENV === 'production') {
+        if (origin.includes('vercel.app') || origin.includes('onrender.com')) {
+          return callback(null, true);
+        }
+      }
+      const normalizedOrigin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+      const isAllowed = allowedOrigins.some(allowed => {
+        const normalizedAllowed = allowed.endsWith('/') ? allowed.slice(0, -1) : allowed;
+        return normalizedOrigin === normalizedAllowed || 
+               normalizedOrigin.startsWith(normalizedAllowed + '/') ||
+               normalizedOrigin.includes(normalizedAllowed);
+      });
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -63,17 +93,49 @@ app.use(helmet({
 })); // Security headers
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    // Allow requests with no origin (like mobile apps, curl requests, or server-to-server)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // In production, be more lenient - allow vercel.app and onrender.com domains
+    if (process.env.NODE_ENV === 'production') {
+      // Allow all vercel.app and onrender.com subdomains
+      if (origin.includes('vercel.app') || origin.includes('onrender.com') || origin.includes('vercel.com')) {
+        return callback(null, true);
+      }
+    }
+    
+    // Normalize origin (remove trailing slash)
+    const normalizedOrigin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+    
+    // Check if origin is in allowed list (exact match or contains)
+    const isAllowed = allowedOrigins.some(allowed => {
+      const normalizedAllowed = allowed.endsWith('/') ? allowed.slice(0, -1) : allowed;
+      // Exact match
+      if (normalizedOrigin === normalizedAllowed) {
+        return true;
+      }
+      // Check if origin contains the allowed domain (for subdomains)
+      if (normalizedOrigin.includes(normalizedAllowed)) {
+        return true;
+      }
+      return false;
+    });
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      // Log the rejected origin for debugging (always log in production to help debug)
+      console.warn(`⚠️  CORS: Rejected origin: ${origin}`);
+      console.warn(`   Allowed origins: ${allowedOrigins.join(', ')}`);
+      callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(morgan('dev')); // Logging
 app.use(express.json());
