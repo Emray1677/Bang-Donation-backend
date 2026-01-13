@@ -12,6 +12,9 @@ export interface IPaymentMethod extends Document {
   description?: string; // Method description
   caution_note?: string; // Admin's caution note for users
   receiving_account?: string; // Receiving account number/address (BTC wallet, PayPal email, etc.)
+  has_display_text?: boolean; // Whether to show display_text to users
+  display_label?: string; // Label for the display text field
+  display_text?: string; // Text to display to users (read-only, with copy button)
   is_active: boolean;
   order: number; // Display order
   created_at: Date;
@@ -67,6 +70,18 @@ const PaymentMethodSchema = new Schema<IPaymentMethod>(
     receiving_account: {
       type: String,
       maxlength: [500, 'Receiving account cannot exceed 500 characters'],
+    },
+    has_display_text: {
+      type: Boolean,
+      default: false,
+    },
+    display_label: {
+      type: String,
+      maxlength: [100, 'Display label cannot exceed 100 characters'],
+    },
+    display_text: {
+      type: String,
+      maxlength: [1000, 'Display text cannot exceed 1000 characters'],
     },
     is_active: {
       type: Boolean,

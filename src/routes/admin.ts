@@ -634,6 +634,9 @@ router.get('/payment-methods', async (req: express.Request, res: Response) => {
       description: method.description,
       caution_note: method.caution_note,
       receiving_account: method.receiving_account,
+      has_display_text: method.has_display_text,
+      display_label: method.display_label,
+      display_text: method.display_text,
       is_active: method.is_active,
       order: method.order,
       created_at: method.created_at.toISOString(),
@@ -662,6 +665,9 @@ router.post('/payment-methods', [
   body('description').optional().isLength({ max: 500 }),
   body('caution_note').optional().isLength({ max: 1000 }),
   body('receiving_account').optional().isLength({ max: 500 }),
+  body('has_display_text').optional().isBoolean(),
+  body('display_label').optional().isLength({ max: 100 }),
+  body('display_text').optional().isLength({ max: 1000 }),
   body('order').optional().isInt({ min: 0 }),
 ], async (req: AuthRequest, res: Response) => {
   try {
@@ -682,6 +688,9 @@ router.post('/payment-methods', [
       description,
       caution_note,
       receiving_account,
+      has_display_text,
+      display_label,
+      display_text,
       order
     } = req.body;
 
@@ -697,6 +706,9 @@ router.post('/payment-methods', [
       description,
       caution_note,
       receiving_account,
+      has_display_text: has_display_text || false,
+      display_label,
+      display_text,
       order: order || 0,
     });
 
@@ -721,6 +733,9 @@ router.post('/payment-methods', [
       description: method.description,
       caution_note: method.caution_note,
       receiving_account: method.receiving_account,
+      has_display_text: method.has_display_text,
+      display_label: method.display_label,
+      display_text: method.display_text,
       is_active: method.is_active,
       order: method.order,
       created_at: method.created_at.toISOString(),
@@ -747,6 +762,9 @@ router.patch('/payment-methods/:id', [
   body('description').optional().isLength({ max: 500 }),
   body('caution_note').optional().isLength({ max: 1000 }),
   body('receiving_account').optional().isLength({ max: 500 }),
+  body('has_display_text').optional().isBoolean(),
+  body('display_label').optional().isLength({ max: 100 }),
+  body('display_text').optional().isLength({ max: 1000 }),
   body('order').optional().isInt({ min: 0 }),
   body('is_active').optional().isBoolean(),
 ], async (req: AuthRequest, res: Response) => {
@@ -770,6 +788,9 @@ router.patch('/payment-methods/:id', [
       description,
       caution_note,
       receiving_account,
+      has_display_text,
+      display_label,
+      display_text,
       order,
       is_active
     } = req.body;
@@ -787,6 +808,9 @@ router.patch('/payment-methods/:id', [
     if (description !== undefined) updateData.description = description;
     if (caution_note !== undefined) updateData.caution_note = caution_note;
     if (receiving_account !== undefined) updateData.receiving_account = receiving_account;
+    if (has_display_text !== undefined) updateData.has_display_text = has_display_text;
+    if (display_label !== undefined) updateData.display_label = display_label;
+    if (display_text !== undefined) updateData.display_text = display_text;
     if (order !== undefined) updateData.order = order;
     if (is_active !== undefined) updateData.is_active = is_active;
 
@@ -821,6 +845,9 @@ router.patch('/payment-methods/:id', [
       description: method.description,
       caution_note: method.caution_note,
       receiving_account: method.receiving_account,
+      has_display_text: method.has_display_text,
+      display_label: method.display_label,
+      display_text: method.display_text,
       is_active: method.is_active,
       order: method.order,
       created_at: method.created_at.toISOString(),
