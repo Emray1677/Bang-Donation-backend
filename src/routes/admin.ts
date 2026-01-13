@@ -335,6 +335,52 @@ router.patch(
   }
 );
 
+// @route   PATCH /api/admin/donations/bulk-status
+// @desc    Bulk update donation status (accept all pending or decline all pending)
+// @access  Private (Admin)
+router.patch(
+  '/donations/bulk-status',
+  [
+    body('status')
+      .isIn(['confirmed', 'cancelled'])
+      .withMessage('Invalid status. Must be confirmed or cancelled'),
+    body('filter_status')
+      .optional()
+      .isIn(['pending', 'confirmed', 'completed', 'cancelled'])
+      .withMessage('Invalid filter status'),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ message: errors.array()[0].msg });
+      }
+
+      const { status, filter_status } = req.body;
+      
+      // Build query - default to pending if no filter_status provided
+      const query: any = { status: filter_status || 'pending' };
+
+      // Update all matching donations
+      const updateData: any = { status };
+      if (status === 'confirmed') {
+        updateData.confirmed_at = new Date();
+      }
+
+      const result = await Donation.updateMany(query, updateData);
+      
+      res.json({
+        message: `Successfully updated ${result.modifiedCount} donation(s)`,
+        modifiedCount: result.modifiedCount,
+        matchedCount: result.matchedCount,
+      });
+    } catch (error: any) {
+      console.error('Bulk update donation status error:', error);
+      res.status(500).json({ message: 'Server error bulk updating donation status' });
+    }
+  }
+);
+
 // ========== Donation Reasons Management ==========
 
 // @route   GET /api/admin/reasons
