@@ -279,65 +279,10 @@ router.patch('/users/:id/role', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// @route   PATCH /api/admin/donations/:id/status
-// @desc    Update donation status (approve/decline)
-// @access  Private (Admin)
-router.patch(
-  '/donations/:id/status',
-  [
-    body('status')
-      .isIn(['pending', 'confirmed', 'completed', 'cancelled'])
-      .withMessage('Invalid status'),
-  ],
-  async (req: AuthRequest, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ message: errors.array()[0].msg });
-      }
-
-      const { status } = req.body;
-      const donation = await Donation.findById(req.params.id);
-
-      if (!donation) {
-        return res.status(404).json({ message: 'Donation not found' });
-      }
-
-      donation.status = status;
-      if (status === 'confirmed' && !donation.confirmed_at) {
-        donation.confirmed_at = new Date();
-      }
-      if (status === 'completed' && !donation.completed_at) {
-        donation.completed_at = new Date();
-      }
-
-      await donation.save();
-
-      const populatedDonation = await Donation.findById(donation._id)
-        .populate('user_id', 'full_name email')
-        .populate('reason_id', 'title')
-        .lean();
-
-      res.json({
-        id: populatedDonation?._id.toString(),
-        user_id: populatedDonation?.user_id,
-        amount: populatedDonation?.amount,
-        status: populatedDonation?.status,
-        reason_id: populatedDonation?.reason_id,
-        confirmed_at: populatedDonation?.confirmed_at?.toISOString(),
-        completed_at: populatedDonation?.completed_at?.toISOString(),
-        created_at: populatedDonation?.created_at.toISOString(),
-      });
-    } catch (error: any) {
-      console.error('Update donation status error:', error);
-      res.status(500).json({ message: 'Server error updating donation status' });
-    }
-  }
-);
-
 // @route   PATCH /api/admin/donations/bulk-status
 // @desc    Bulk update donation status (accept all pending or decline all pending)
 // @access  Private (Admin)
+// NOTE: This route must come BEFORE /donations/:id/status to avoid route conflicts
 router.patch(
   '/donations/bulk-status',
   [
@@ -377,6 +322,58 @@ router.patch(
     } catch (error: any) {
       console.error('Bulk update donation status error:', error);
       res.status(500).json({ message: 'Server error bulk updating donation status' });
+    }
+  }
+);
+
+// @route   PATCH /api/admin/donations/:id/status
+// @desc    Update donation status (approve/decline)
+// @access  Private (Admin)
+router.patch(
+  '/donations/:id/status',
+  [
+    body('status')
+      .isIn(['pending', 'confirmed', 'cancelled'])
+      .withMessage('Invalid status'),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ message: errors.array()[0].msg });
+      }
+
+      const { status } = req.body;
+      const donation = await Donation.findById(req.params.id);
+
+      if (!donation) {
+        return res.status(404).json({ message: 'Donation not found' });
+      }
+
+      donation.status = status;
+      if (status === 'confirmed' && !donation.confirmed_at) {
+        donation.confirmed_at = new Date();
+      }
+
+      await donation.save();
+
+      const populatedDonation = await Donation.findById(donation._id)
+        .populate('user_id', 'full_name email')
+        .populate('reason_id', 'title')
+        .lean();
+
+      res.json({
+        id: populatedDonation?._id.toString(),
+        user_id: populatedDonation?.user_id,
+        amount: populatedDonation?.amount,
+        status: populatedDonation?.status,
+        reason_id: populatedDonation?.reason_id,
+        confirmed_at: populatedDonation?.confirmed_at?.toISOString(),
+        created_at: populatedDonation?.created_at.toISOString(),
+      });
+    } catch (error: any) {
+      console.error('Update donation status error:', error);
+      res.status(500).json({ message: 'Server error updating donation status' });
     }
   }
 );
