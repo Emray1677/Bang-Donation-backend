@@ -226,6 +226,113 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// @route   PATCH /api/auth/profile
+// @desc    Update user profile (name, email)
+// @access  Private
+router.patch(
+  '/profile',
+  authenticate,
+  [
+    body('full_name')
+      .optional()
+      .trim()
+      .isLength({ min: 2 })
+      .withMessage('Full name must be at least 2 characters'),
+    body('email')
+      .optional()
+      .isEmail()
+      .normalizeEmail()
+      .withMessage('Please provide a valid email'),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ message: errors.array()[0].msg });
+      }
+
+      const { full_name, email } = req.body;
+      const user = await User.findById(req.user!._id);
+
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Check if email is being changed and if it's already taken
+      if (email && email !== user.email) {
+        const existingUser = await User.findOne({ email: email.toLowerCase() });
+        if (existingUser) {
+          return res.status(400).json({ message: 'Email is already in use' });
+        }
+        user.email = email.toLowerCase();
+      }
+
+      if (full_name) {
+        user.full_name = full_name.trim();
+      }
+
+      await user.save();
+
+      res.json({
+        id: user._id.toString(),
+        email: user.email,
+        full_name: user.full_name,
+        avatar_url: user.avatar_url,
+        role: user.role,
+        created_at: user.created_at.toISOString(),
+        updated_at: user.updated_at.toISOString(),
+      });
+    } catch (error: any) {
+      console.error('Update profile error:', error);
+      res.status(500).json({ message: 'Server error updating profile' });
+    }
+  }
+);
+
+// @route   PATCH /api/auth/password
+// @desc    Update user password
+// @access  Private
+router.patch(
+  '/password',
+  authenticate,
+  [
+    body('currentPassword').notEmpty().withMessage('Current password is required'),
+    body('newPassword')
+      .isLength({ min: 6 })
+      .withMessage('New password must be at least 6 characters'),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ message: errors.array()[0].msg });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+      const user = await User.findById(req.user!._id).select('+password');
+
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Verify current password
+      const isMatch = await user.comparePassword(currentPassword);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Current password is incorrect' });
+      }
+
+      // Update password (will be hashed by pre-save hook)
+      user.password = newPassword;
+      await user.save();
+
+      res.json({ message: 'Password updated successfully' });
+    } catch (error: any) {
+      console.error('Update password error:', error);
+      res.status(500).json({ message: 'Server error updating password' });
+    }
+  }
+);
+
 // @route   POST /api/auth/forgot-password
 // @desc    Request password reset
 // @access  Public
